@@ -5,15 +5,14 @@
 from torch import optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm, trange
-from model.dctc import DCTC
-from utils.dataset import Mydataset
+from model import DCTC
+from dataset import Mydataset
 import torch
 from torch.nn import functional as F
 import numpy as np
-from utils.config import model_config, train_config, data_config, eval_config
+from config import model_config, train_config, eval_config
 import pickle as pkl
-from sklearn.cluster import KMeans
-from utils.evaluation import eva
+from evaluation import eva
 import scipy.sparse as sp
 import os
 
@@ -33,14 +32,14 @@ def get_data():
     for i in range(len(vocabulary)):
         vocabulary_dic[vocabulary[i]] = i
     with open('./data/y.txt', encoding='utf-8') as f:
-        accusation = [i.strip() for i in f.readlines()]
+        labels = [i.strip() for i in f.readlines()]
     with open(stop_words_path, encoding='utf8') as f:
         stop_words = []
         for i in f:
             stop_words.append(i.strip())
     with open('./data/x_filte.txt', encoding='utf-8') as f:
         src = [i.strip() for i in f.readlines()]
-    return src, accusation, stop_words, vocabulary_dic, vocabulary
+    return src, labels, stop_words, vocabulary_dic, vocabulary
 
 
 def loss_function(x_bow, out, mu, var):
@@ -115,7 +114,6 @@ def train(dataset, train_config, eval_config, model_config):
                  is_traing=True,
                  support=t_support)
     # model.load_state_dict(torch.load('./saves/params1.bin', map_location='cpu'))
-    # model.cluster_layer.data = torch.tensor(np.load('./cluster_centers/center0.npy')).to(device)
     print("加载上次的完成")
     dataLoader = DataLoader(dataset, batch_size=train_config['batch_size'], shuffle=False)
     optimizer = optim.Adam(model.parameters(), lr=train_config['lr'])
@@ -129,7 +127,7 @@ def train(dataset, train_config, eval_config, model_config):
         x_seq = dataLoader.dataset.x_seq
         xh = dataLoader.dataset.xh
         mask = dataLoader.dataset.mask
-        y_true = dataLoader.dataset.accusation
+        y_true = dataLoader.dataset.labels
         y_true = list(map(int, y_true))
         x_bow = x_bow.to(device)
         x_seq = x_seq.to(device)
@@ -153,9 +151,9 @@ def train(dataset, train_config, eval_config, model_config):
 
 if __name__ == '__main__':
 
-    src, accusation, stop_words, vocabulary_dic, vocabulary = get_data()
+    src, labels, stop_words, vocabulary_dic, vocabulary = get_data()
     print("vocabulary")
-    dataset = Mydataset(src, accusation, model_config['seq_len'], vocabulary_dic, stop_word=stop_words,
+    dataset = Mydataset(src, labels, model_config['seq_len'], vocabulary_dic, stop_word=stop_words,
                         vocabulary=vocabulary)
     if model_config['is_traing'] is not True:
         raise ValueError("Train flag must true before yor train model")
